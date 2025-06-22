@@ -2,35 +2,35 @@ using UnityEngine;
 
 public class HealthSystem : MonoBehaviour, IDamageable
 {
-	public int Health { get; set; }
-	public int MaxHealth { get;  set; } = 100;
+	public int health { get; set; }
+	public int maxHealth { get;  set; } = 100;
 
 	private void Start()
 	{
-		Health = MaxHealth; // Initialize health to max health
+		health = maxHealth; // Initialize health to max health
 	}
 
 	public void TakeDamage(int damageAmount)
 	{
-		Health -= damageAmount;
-		Debug.Log($"Player took {damageAmount} damage. Current health: {Health}");
+		health -= damageAmount;
+		Debug.Log($"Player took {damageAmount} damage. Current health: {health}");
 
-		if (Health <= 0)
+		if (health <= 0)
 		{
 			Die();
 		}
 	}
 
-	public void Heal(int healAmount)
+	/*public void Heal(int healAmount)
 	{
-		Health += healAmount;
-		Health = Mathf.Min(Health, MaxHealth); // Ensure health doesn't exceed max health
-		Debug.Log($"Player healed for {healAmount}. Current health: {Health}");
+		health += healAmount;
+		health = Mathf.Min(health, maxHealth); // Ensure health doesn't exceed max health
+		Debug.Log($"Player healed for {healAmount}. Current health: {health}");
 	}
-
+	*/
 	public void Die()
 	{
 		Debug.Log("Player has died.");
-		// Handle player death (e.g., respawn, game over, etc.)
+		Destroy(gameObject);
 	}
 }

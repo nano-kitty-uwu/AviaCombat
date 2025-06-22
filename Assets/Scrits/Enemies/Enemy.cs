@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Enemy : MonoBehaviour
+public class Enemy : MonoBehaviour, IDamageable
 {
 	private EnemyData enemyData;
 	private int level;
@@ -11,19 +11,33 @@ public class Enemy : MonoBehaviour
 		this.level = level;
 
 		// Apply stats from EnemyData
-		int health = enemyData.baseHealth + (enemyData.healthIncreasePerLevel * level);
+		this.health = enemyData.baseHealth + (enemyData.healthIncreasePerLevel * level);
 		int damage = enemyData.baseDamage + (enemyData.damageIncreasePerLevel * level);
 		float speed = enemyData.baseSpeed + (enemyData.speedIncreasePerLevel * level);
 
 		// Apply stats to the enemy
-		GetComponent<HealthSystem>().MaxHealth = health;
-		GetComponent<HealthSystem>().Heal(health);
+		GetComponent<HealthSystem>().maxHealth = health;
+		//GetComponent<HealthSystem>().Heal(health);
 		// Apply damage and speed to the enemy's behavior
 	}
+	
+		public int health { get; set; }
+		public int maxHealth { get; private set; }
 
-	private void Die()
-	{
-		Debug.Log("Enemy has died.");
-		Destroy(gameObject);
-	}
+		public void TakeDamage(int damageAmount)
+		{
+			health -= damageAmount;
+			if (health <= 0) Die();
+		}
+
+		public void Heal(int healAmount)
+		{
+			health = Mathf.Min(health + healAmount, maxHealth);
+		}
+
+		public void Die()
+		{
+			// Handle death (spawn effects, award points, etc.)
+			Destroy(gameObject);
+		}
 }

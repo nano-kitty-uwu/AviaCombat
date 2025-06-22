@@ -1,52 +1,65 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ProceduralTerrain : MonoBehaviour
 {
 	[Header("Terrain Settings")]
-	public int textureWidth = 256; // Width of the texture
-	public int textureHeight = 256; // Height of the texture
-	public float scale = 20f; // Scale of the Perlin Noise
-	public float offsetX = 100f; // X offset for Perlin Noise
-	public float offsetY = 100f; // Y offset for Perlin Noise
+	public int textureWidth = 256;
+	public int textureHeight = 256;
+	public float scale = 20f;
+	public float offsetX = 100f;
+	public float offsetY = 100f;
 
 	[Header("Color Settings")]
-	public Color waterColor = new Color(0, 0, 1); // Blue for water
-	public Color grassColor = new Color(0, 1, 0); // Green for grass
-	public Color mountainColor = new Color(0.5f, 0.35f, 0.05f); // Brown for mountains
-	public Color snowColor = new Color(1, 1, 1); // White for snow
+	public Color waterColor = new Color(0, 0, 1);
+	public Color grassColor = new Color(0, 1, 0);
+	public Color mountainColor = new Color(0.5f, 0.35f, 0.05f);
+	public Color snowColor = new Color(1, 1, 1);
 
 	[Header("Height Thresholds")]
-	public float waterLevel = 0.3f; // Height threshold for water
-	public float grassLevel = 0.5f; // Height threshold for grass
-	public float mountainLevel = 0.8f; // Height threshold for mountains
+	public float waterLevel = 0.3f;
+	public float grassLevel = 0.5f;
+	public float mountainLevel = 0.8f;
+
+	[Header("Cloud Settings")]
+	public bool generateClouds = true;
+	public float cloudScale = 5f;
+	public float cloudThreshold = 0.6f;
+	public Color cloudColor = new Color(1, 1, 1, 0.8f);
+	public float cloudOffsetX = 50f;
+	public float cloudOffsetY = 50f;
+	[Range(0, 1)] public float cloudCoverage = 0.3f;
 
 	private Texture2D terrainTexture;
+	private Texture2D cloudTexture;
 
 	void Start()
 	{
 		// Generate the terrain texture
 		terrainTexture = GenerateTexture();
 
-		// Apply the texture to a Quad
-		ApplyTextureToQuad();
+		// Generate cloud texture if enabled
+		if (generateClouds)
+		{
+			cloudTexture = GenerateCloudTexture();
+		}
+
+		// Apply the textures to a Quad
+		ApplyTexturesToQuad();
 	}
 
 	Texture2D GenerateTexture()
 	{
-		// Create a new texture
 		Texture2D texture = new Texture2D(textureWidth, textureHeight);
 
-		// Generate the texture pixels
 		for (int x = 0; x < textureWidth; x++)
 		{
 			for (int y = 0; y < textureHeight; y++)
 			{
-				// Calculate Perlin Noise value for this position
 				float xCoord = (float)x / textureWidth * scale + offsetX;
 				float yCoord = (float)y / textureHeight * scale + offsetY;
 				float noiseValue = Mathf.PerlinNoise(xCoord, yCoord);
 
-				// Determine the color based on the noise value
 				Color pixelColor;
 				if (noiseValue < waterLevel)
 				{
@@ -65,26 +78,84 @@ public class ProceduralTerrain : MonoBehaviour
 					pixelColor = snowColor;
 				}
 
-				// Set the pixel color
 				texture.SetPixel(x, y, pixelColor);
 			}
 		}
 
-		// Apply the changes to the texture
 		texture.Apply();
 		return texture;
 	}
 
-	void ApplyTextureToQuad()
+	Texture2D GenerateCloudTexture()
 	{
-		// Create a Quad
-		GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-		quad.transform.position = new Vector3(0, 0, 10); // Position the Quad below the plane
-		quad.transform.localScale = new Vector3(textureWidth / 10f, textureHeight / 10f, 1); // Scale the Quad
+		Texture2D texture = new Texture2D(textureWidth, textureHeight);
 
-		// Apply the texture to the Quad's material
-		Renderer quadRenderer = quad.GetComponent<Renderer>();
-		quadRenderer.material = new Material(Shader.Find("Unlit/Texture"));
-		quadRenderer.material.mainTexture = terrainTexture;
+		for (int x = 0; x < textureWidth; x++)
+		{
+			for (int y = 0; y < textureHeight; y++)
+			{
+				// Multi-layer noise for more interesting shapes
+				float noise1 = Mathf.PerlinNoise(
+					x * 0.01f + cloudOffsetX,
+					y * 0.01f + cloudOffsetY);
+
+				float noise2 = Mathf.PerlinNoise(
+					x * 0.05f + cloudOffsetX + 100f,
+					y * 0.05f + cloudOffsetY + 100f);
+
+				float noise3 = Mathf.PerlinNoise(
+					x * 0.02f + cloudOffsetX + 200f,
+					y * 0.02f + cloudOffsetY + 200f);
+
+				// Combine noises with different weights
+				float combinedNoise = noise1 * 0.5f + noise2 * 0.35f + noise3 * 0.15f;
+
+				// Apply threshold and boost visibility
+				float cloudValue = Mathf.Pow(Mathf.Clamp01((combinedNoise - 0.4f) * 2.5f), 1.5f);
+
+				// Add edge darkening for more definition
+				float edgeFactor = Mathf.Min(
+					Mathf.Min(x, textureWidth - x),
+					Mathf.Min(y, textureHeight - y)) / (textureWidth * 0.1f);
+				edgeFactor = Mathf.Clamp01(edgeFactor);
+				cloudValue *= edgeFactor;
+
+				// Set pixel with enhanced contrast
+				Color cloudPixel = new Color(
+					cloudColor.r,
+					cloudColor.g,
+					cloudColor.b,
+					cloudValue * 0.9f); // Slightly reduced alpha for natural look
+
+				texture.SetPixel(x, y, cloudPixel);
+			}
+		}
+
+		texture.Apply();
+		return texture;
+	}
+
+	void ApplyTexturesToQuad()
+	{
+		GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+		quad.transform.position = new Vector3(0, 0, 10);
+		quad.transform.localScale = new Vector3(textureWidth / 10f, textureHeight / 10f, 1);
+
+		Material material = new Material(Shader.Find("Unlit/Transparent"));
+		material.mainTexture = terrainTexture;
+
+		if (generateClouds)
+		{
+			// Create a second quad for clouds
+			GameObject cloudQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+			cloudQuad.transform.position = new Vector3(0, 0, 9); // Slightly in front of terrain
+			cloudQuad.transform.localScale = new Vector3(textureWidth / 10f, textureHeight / 10f, 1);
+
+			Material cloudMaterial = new Material(Shader.Find("Unlit/Transparent"));
+			cloudMaterial.mainTexture = cloudTexture;
+			cloudQuad.GetComponent<Renderer>().material = cloudMaterial;
+		}
+
+		quad.GetComponent<Renderer>().material = material;
 	}
 }
